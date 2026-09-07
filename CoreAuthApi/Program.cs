@@ -1,4 +1,5 @@
 using CoreAuthApi.Data;
+using CoreAuthApi.Repositories;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -12,16 +13,19 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddDbContext<IdentityAuthDBContext>(options=>
-options.UseSqlServer(builder.Configuration.GetConnectionString("con")?? throw new InvalidOperationException("Invalid Connectionstring")));
+//database configuration
+builder.Services.AddDbContext<IdentityAuthDBContext>(options =>
+options.UseSqlServer(builder.Configuration.GetConnectionString("con") ?? throw new InvalidOperationException("Invalid Connectionstring")));
+
+//Identity configuration
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
     .AddEntityFrameworkStores<IdentityAuthDBContext>().AddSignInManager().AddRoles<IdentityRole>();
 builder.Services.AddAuthorization();
-builder.Services.AddAuthentication(options=>
+builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
     options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-}).AddJwtBearer(options=>
+}).AddJwtBearer(options =>
 
 {
     options.TokenValidationParameters = new TokenValidationParameters
@@ -32,7 +36,7 @@ builder.Services.AddAuthentication(options=>
         ValidateIssuerSigningKey = true,
         ValidateLifetime = true,
         ValidIssuer = builder.Configuration["Jwt:Issuer"],
-        ValidAudience=builder.Configuration["Jwt:Audience"],
+        ValidAudience = builder.Configuration["Jwt:Audience"],
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!))
     };
 
@@ -50,13 +54,17 @@ builder.Services.AddSwaggerGen(options =>
     });
     options.OperationFilter<SecurityRequirementsOperationFilter>();
 });
+//Dependency Injection for UserRepository
+builder.Services.AddScoped<IUserRepository, UserRepository>();
+
+//Json  Serializer configuration
 builder.Services.AddControllers().AddJsonOptions(options =>
 {
-    options.JsonSerializerOptions.ReferenceHandler=System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
+    options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
     options.JsonSerializerOptions.WriteIndented = true;
 });
 
-//Add Cors 
+//CORS configuration
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("EnableCORS", builder =>
@@ -76,8 +84,9 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 app.UseCors("EnableCORS");
-app.UseAuthorization();
 app.UseAuthentication();
+app.UseAuthorization();
+
 app.MapControllers();
 
 app.Run();
